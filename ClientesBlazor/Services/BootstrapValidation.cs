@@ -10,4 +10,3 @@ public sealed class BootstrapValidation : FieldCssClassProvider
         return editContext.IsModified(fieldIdentifier) ? "is-valid" : "";
     }
 }
-

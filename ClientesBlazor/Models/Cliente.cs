@@ -45,5 +45,3 @@ public sealed class FechaNacimientoValidaAttribute : ValidationAttribute
     public override bool IsValid(object? value) => value is null ||
         value is DateOnly fecha && fecha != default && fecha <= DateOnly.FromDateTime(DateTime.Today);
 }
-
-

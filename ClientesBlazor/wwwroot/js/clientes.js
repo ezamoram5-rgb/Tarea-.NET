@@ -12,4 +12,3 @@ export function show(id) {
 export function hide(id) {
     instances.get(id)?.hide();
 }
-

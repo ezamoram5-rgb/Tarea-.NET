@@ -44,4 +44,3 @@ public sealed class ClientesApi(HttpClient http)
 }
 
 public sealed class ApiException(string message) : Exception(message);
-
