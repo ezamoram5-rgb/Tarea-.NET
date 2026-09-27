@@ -55,7 +55,7 @@ function Detener {
 }
 
 try {
-    dotnet build $raiz -c Release --nologo
+    dotnet build (Join-Path $raiz 'ClientesAPI.slnx') -c Release --nologo
     if ($LASTEXITCODE -ne 0) { throw 'La compilación falló.' }
     $env:ConnectionStrings__DefaultConnection = "Data Source=$db"
     $env:ASPNETCORE_ENVIRONMENT = 'Development'

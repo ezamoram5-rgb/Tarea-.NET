@@ -1,0 +1,10 @@
+body { background: #f4f6fa; color: #18243a; }
+.navbar { background: #172a46; }
+main { max-width: 1280px; margin: auto; padding: 3rem 1.25rem; }
+.card { border: 1px solid #e1e6ee; border-radius: 1rem; }
+.table th { color: #56647a; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; }
+.table td, .table th { padding: 1rem; vertical-align: middle; }
+.validation-message { color: var(--bs-form-invalid-color); font-size: .875rem; margin-top: .25rem; }
+#blazor-error-ui { display: none; position: fixed; bottom: 0; background: #fff3cd; padding: 1rem; width: 100%; z-index: 2000; }
+.modal-header, .modal-footer { padding: 1.25rem; }
+

@@ -1,3 +1,58 @@
+# Administración de clientes · API .NET 10 y Blazor
+
+## Tarea Blazor
+
+La solución incluye dos aplicaciones independientes: la API original y `ClientesBlazor`, una Blazor Web App con interactividad Server. Blazor consume `/api/clientes` mediante `HttpClient`; no referencia Entity Framework ni accede a la base de datos.
+
+El módulo incluye listado con búsqueda, alta y edición en un modal Bootstrap, confirmación de eliminación, validación visual de campos y recarga del listado después de cada operación. Los errores de la API, incluido el CUI duplicado, se muestran en el modal sin perder los datos ingresados.
+
+### Ejecutar las dos aplicaciones
+
+Desde la raíz del repositorio, restaurar y compilar:
+
+```powershell
+dotnet restore ClientesAPI.slnx
+dotnet build ClientesAPI.slnx
+```
+
+En una terminal, iniciar la API:
+
+```powershell
+dotnet run --project Programacion2ClientesAPI.csproj --launch-profile http
+```
+
+En una segunda terminal, iniciar Blazor:
+
+```powershell
+dotnet run --project ClientesBlazor/ClientesBlazor.csproj --launch-profile http
+```
+
+- Aplicación: [http://localhost:5170](http://localhost:5170).
+- Swagger: [http://localhost:5169/swagger](http://localhost:5169/swagger).
+- En Visual Studio, abrir `ClientesAPI.slnx` y configurar ambos proyectos como proyectos de inicio.
+
+La URL de la API se configura en `ClientesBlazor/appsettings.json`, sección `Api:BaseUrl`; debe terminar en `/`. También puede configurarse con `Api__BaseUrl`. Las llamadas salen desde el servidor Blazor, por lo que este modo no requiere habilitar CORS. Mantener ambos procesos en ejecución durante la demostración.
+
+### Bootstrap y validación
+
+Bootstrap 5.3.8 se incluye localmente en `wwwroot/lib/bootstrap` con su aviso de licencia. Sus modales gestionan el fondo y el foco. `EditForm`, `DataAnnotationsValidator` y `BootstrapValidation` aplican `is-invalid` e `is-valid`, junto con mensajes junto a cada campo. Se validan campos obligatorios, longitudes, CUI de 13 dígitos, teléfono y fecha no futura. La API vuelve a validar los datos antes de persistirlos.
+
+El modelo de Blazor es un contrato de entrada/salida independiente; la fecha es nullable en el formulario para permitir un campo inicialmente vacío. El envío exige una fecha válida.
+
+### Archivos principales de Blazor
+
+- `Components/Pages/Home.razor`: listado, formularios y operaciones.
+- `Models/Cliente.cs`: contrato y validaciones del formulario.
+- `Services/ClientesApi.cs`: peticiones HTTP y mensajes de error de la API.
+- `Services/BootstrapValidation.cs`: estilos de validación.
+- `wwwroot/js/clientes.js`: apertura y cierre de modales Bootstrap.
+
+### Entrega
+
+El código de ambas tareas se conserva en este repositorio. Si se revisa una rama mediante un pull request, integrar sus cambios en `main` antes de entregar al docente el enlace principal: https://github.com/ezamoram5-rgb/Tarea-.NET.
+
+Las instrucciones de la API original se conservan a continuación.
+
 # API REST de clientes
 
 **Autor: Eutimio Zamora**
@@ -17,8 +72,8 @@ SQLite almacena los registros en `clientes.db`. No requiere instalar MySQL ni co
 Abra una terminal dentro de la carpeta del proyecto:
 
 ```powershell
-dotnet restore
-dotnet run --launch-profile http
+dotnet restore ClientesAPI.slnx
+dotnet run --project Programacion2ClientesAPI.csproj --launch-profile http
 ```
 
 Abra [Swagger](http://localhost:5169/swagger) para probar los endpoints. La API está en `http://localhost:5169/api/clientes`. Para detenerla, presione Ctrl+C en la terminal.

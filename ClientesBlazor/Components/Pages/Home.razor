@@ -1,0 +1,281 @@
+@page "/"
+@page "/clientes"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using ClientesBlazor.Models
+@using ClientesBlazor.Services
+@inject ClientesApi Api
+@inject IJSRuntime JS
+@inject ILogger<Home> Logger
+@implements IAsyncDisposable
+
+<PageTitle>Administración de clientes</PageTitle>
+<div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div><h1 class="fw-bold mb-2">Clientes</h1><p class="text-secondary mb-0">Consulta y administra la información de tus clientes.</p></div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-outline-secondary" disabled="@ocupado" @onclick="CargarAsync">Actualizar</button>
+        <button class="btn btn-primary" disabled="@ocupado" @onclick="() => AbrirAsync(null)">+ Nuevo cliente</button>
+    </div>
+</div>
+@if (!string.IsNullOrEmpty(aviso))
+{
+    <div class="alert alert-success" role="status">@aviso</div>
+}
+@if (!string.IsNullOrEmpty(errorListado))
+{
+    <div class="alert alert-danger" role="alert">@errorListado</div>
+}
+<div class="card shadow-sm">
+    <div class="card-body border-bottom d-flex flex-wrap align-items-center gap-3">
+        <span class="fw-semibold">@clientes.Count clientes registrados</span>
+        <div class="ms-auto">
+            <label for="buscar" class="visually-hidden">Buscar clientes</label>
+            <input id="buscar" class="form-control" placeholder="Buscar por nombre, CUI o NIT…" @bind="busqueda" @bind:event="oninput" />
+        </div>
+    </div>
+    @if (cargando)
+    {
+        <div class="p-5 text-center" role="status"><span class="spinner-border spinner-border-sm me-2"></span>Cargando clientes…</div>
+    }
+    else if (!Filtrados.Any())
+    {
+        <div class="p-5 text-center text-secondary">@(clientes.Count == 0 ? "No hay clientes para mostrar." : "No se encontraron coincidencias.")</div>
+    }
+    else
+    {
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <caption class="visually-hidden">Clientes registrados y acciones de administración</caption>
+                <thead><tr><th>ID</th><th>Cliente</th><th>CUI / NIT</th><th>Contacto</th><th>Nacimiento</th><th>Acciones</th></tr></thead>
+                <tbody>
+                @foreach (var cliente in Filtrados)
+                {
+                    <tr @key="cliente.Id_cliente">
+                        <td>@cliente.Id_cliente</td>
+                        <td><strong>@cliente.Nombres @cliente.Apellidos</strong></td>
+                        <td>@cliente.CUI<div class="small text-secondary">NIT: @cliente.NIT</div></td>
+                        <td>@cliente.Telefono<div class="small text-secondary">@cliente.Direccion</div></td>
+                        <td class="text-nowrap">@cliente.Fecha_Nacimiento?.ToString("dd/MM/yyyy")</td>
+                        <td><div class="d-flex gap-2">
+                            <button class="btn btn-sm btn-outline-primary" disabled="@ocupado" @onclick="() => AbrirAsync(cliente)" aria-label="@($"Editar a {cliente.Nombres} {cliente.Apellidos}")">Editar</button>
+                            <button class="btn btn-sm btn-outline-danger" disabled="@ocupado" @onclick="() => ConfirmarAsync(cliente)" aria-label="@($"Eliminar a {cliente.Nombres} {cliente.Apellidos}")">Eliminar</button>
+                        </div></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+<div class="modal" id="editor" tabindex="-1" aria-labelledby="editorTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="editorTitulo">@(modelo.Id_cliente == 0 ? "Nuevo cliente" : "Editar cliente")</h2>
+                <button type="button" class="btn-close" aria-label="Cerrar" disabled="@guardando" @onclick='() => CerrarAsync("editor")'></button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(errorModal)) { <div class="alert alert-danger" role="alert">@errorModal</div> }
+                <EditForm @key="contexto" EditContext="contexto" OnValidSubmit="GuardarAsync" id="clienteForm" novalidate>
+                    <DataAnnotationsValidator />
+                    <p class="small text-secondary">Todos los campos son obligatorios. El ID se genera automáticamente.</p>
+                    <fieldset disabled="@guardando">
+                    <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label" for="CUI">CUI</label>
+                        <InputText id="CUI" class="form-control" @bind-Value="modelo.CUI" maxlength="13" type="text" aria-describedby="CUI-error" />
+                        <div id="CUI-error"><ValidationMessage For="@(() => modelo.CUI)" /></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="NIT">NIT</label>
+                        <InputText id="NIT" class="form-control" @bind-Value="modelo.NIT" maxlength="15" type="text" aria-describedby="NIT-error" />
+                        <div id="NIT-error"><ValidationMessage For="@(() => modelo.NIT)" /></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="Nombres">Nombres</label>
+                        <InputText id="Nombres" class="form-control" @bind-Value="modelo.Nombres" maxlength="100" type="text" aria-describedby="Nombres-error" />
+                        <div id="Nombres-error"><ValidationMessage For="@(() => modelo.Nombres)" /></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="Apellidos">Apellidos</label>
+                        <InputText id="Apellidos" class="form-control" @bind-Value="modelo.Apellidos" maxlength="100" type="text" aria-describedby="Apellidos-error" />
+                        <div id="Apellidos-error"><ValidationMessage For="@(() => modelo.Apellidos)" /></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="Direccion">Dirección</label>
+                        <InputText id="Direccion" class="form-control" @bind-Value="modelo.Direccion" maxlength="250" type="text" aria-describedby="Direccion-error" />
+                        <div id="Direccion-error"><ValidationMessage For="@(() => modelo.Direccion)" /></div>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label" for="Telefono">Teléfono</label>
+                        <InputText id="Telefono" class="form-control" @bind-Value="modelo.Telefono" maxlength="20" type="tel" aria-describedby="Telefono-error" />
+                        <div id="Telefono-error"><ValidationMessage For="@(() => modelo.Telefono)" /></div>
+                    </div>
+                        <div class="col-md-6">
+                            <label class="form-label" for="Fecha_Nacimiento">Fecha de nacimiento</label>
+                            <InputDate id="Fecha_Nacimiento" class="form-control" @bind-Value="modelo.Fecha_Nacimiento" max="@DateTime.Today.ToString("yyyy-MM-dd")" aria-describedby="fecha-error" />
+                            <div id="fecha-error"><ValidationMessage For="@(() => modelo.Fecha_Nacimiento)" /></div>
+                        </div>
+                    </div>
+                    </fieldset>
+                </EditForm>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" disabled="@guardando" @onclick='() => CerrarAsync("editor")'>Cancelar</button>
+                <button type="submit" form="clienteForm" class="btn btn-primary" disabled="@guardando">@(guardando ? "Guardando…" : "Guardar cliente")</button>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal" id="eliminar" tabindex="-1" aria-labelledby="eliminarTitulo" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title fs-5" id="eliminarTitulo">Eliminar cliente</h2>
+                <button class="btn-close" aria-label="Cerrar" disabled="@guardando" @onclick='() => CerrarAsync("eliminar")'></button>
+            </div>
+            <div class="modal-body">
+                @if (!string.IsNullOrEmpty(errorModal)) { <div class="alert alert-danger" role="alert">@errorModal</div> }
+                <p>¿Deseas eliminar a <strong>@seleccionado?.Nombres @seleccionado?.Apellidos</strong>?</p>
+                <p class="text-secondary mb-0">Esta acción eliminará el registro de forma permanente.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-outline-secondary" disabled="@guardando" @onclick='() => CerrarAsync("eliminar")'>Cancelar</button>
+                <button class="btn btn-danger" disabled="@guardando" @onclick="EliminarAsync">@(guardando ? "Eliminando…" : "Sí, eliminar")</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<Cliente> clientes = [];
+    private Cliente modelo = new();
+    private Cliente? seleccionado;
+    private EditContext contexto = default!;
+    private IJSObjectReference? modulo;
+    private string busqueda = "", errorListado = "", errorModal = "", aviso = "";
+    private bool cargando, guardando;
+    private bool ocupado => cargando || guardando;
+    private IEnumerable<Cliente> Filtrados => clientes.Where(c =>
+        $"{c.Nombres} {c.Apellidos} {c.CUI} {c.NIT}".Contains(busqueda, StringComparison.OrdinalIgnoreCase));
+
+    protected override async Task OnInitializedAsync()
+    {
+        PrepararContexto();
+        await CargarAsync();
+    }
+
+    private void PrepararContexto()
+    {
+        contexto = new EditContext(modelo);
+        contexto.SetFieldCssClassProvider(new BootstrapValidation());
+    }
+
+    private async Task CargarAsync()
+    {
+        cargando = true;
+        errorListado = "";
+        try { clientes = await Api.ListarAsync(); }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or System.Text.Json.JsonException)
+        {
+            Logger.LogWarning(ex, "No se pudo consultar la API");
+            errorListado = "No se pudo actualizar el listado. Comprueba que la API esté ejecutándose y pulsa Actualizar. Los datos visibles pueden estar desactualizados.";
+        }
+        finally { cargando = false; }
+    }
+
+    private async Task MostrarAsync(string id)
+    {
+        modulo ??= await JS.InvokeAsync<IJSObjectReference>("import", "./js/clientes.js");
+        await modulo.InvokeVoidAsync("show", id);
+    }
+
+    private async Task CerrarAsync(string id)
+    {
+        if (modulo is not null) await modulo.InvokeVoidAsync("hide", id);
+    }
+
+    private async Task AbrirAsync(Cliente? cliente)
+    {
+        errorModal = "";
+        modelo = cliente is null ? new Cliente() : new Cliente
+        {
+            Id_cliente = cliente.Id_cliente, CUI = cliente.CUI, NIT = cliente.NIT,
+            Nombres = cliente.Nombres, Apellidos = cliente.Apellidos,
+            Direccion = cliente.Direccion, Telefono = cliente.Telefono,
+            Fecha_Nacimiento = cliente.Fecha_Nacimiento
+        };
+        PrepararContexto();
+        await MostrarAsync("editor");
+    }
+
+    private async Task ConfirmarAsync(Cliente cliente)
+    {
+        seleccionado = cliente;
+        errorModal = "";
+        await MostrarAsync("eliminar");
+    }
+
+    private async Task GuardarAsync()
+    {
+        if (guardando) return;
+        guardando = true;
+        errorModal = "";
+        aviso = "";
+        try
+        {
+            await Api.GuardarAsync(modelo);
+            await CerrarAsync("editor");
+            aviso = modelo.Id_cliente == 0 ? "Cliente agregado correctamente." : "Cliente actualizado correctamente.";
+            await CargarAsync();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            errorModal = MensajeError(ex);
+        }
+        finally { guardando = false; }
+    }
+
+    private async Task EliminarAsync()
+    {
+        if (guardando || seleccionado is null) return;
+        guardando = true;
+        errorModal = "";
+        aviso = "";
+        try
+        {
+            await Api.EliminarAsync(seleccionado.Id_cliente);
+            await CerrarAsync("eliminar");
+            aviso = "Cliente eliminado correctamente.";
+            await CargarAsync();
+        }
+        catch (Exception ex) when (ex is ApiException or HttpRequestException or TaskCanceledException)
+        {
+            errorModal = MensajeError(ex);
+        }
+        finally { guardando = false; }
+    }
+
+    private string MensajeError(Exception ex)
+    {
+        Logger.LogWarning(ex, "No se pudo completar la operación");
+        return ex is ApiException ? ex.Message :
+            "No se pudo confirmar la operación con la API. Cierra este diálogo y actualiza el listado antes de reintentar.";
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (modulo is not null)
+        {
+            try
+            {
+                await modulo.InvokeVoidAsync("hide", "editor");
+                await modulo.InvokeVoidAsync("hide", "eliminar");
+                await modulo.DisposeAsync();
+            }
+            catch (JSDisconnectedException) { }
+        }
+    }
+}
+
+
